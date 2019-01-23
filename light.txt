@@ -1,0 +1,190 @@
+#include <GL/glew.h>
+#include <gl/freeglut.h> 
+#include <math.h>
+#include <vector>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <iostream>
+GLuint vbo, vboloc, col, colloc, ibo, viewloc,normloc;
+glm::mat4 view;
+std::vector<float> pos,norm;
+std::vector<unsigned int> ind;
+void myinit() {
+
+	GLuint shp, vsh, fsh;
+	shp = glCreateProgram();
+	vsh = glCreateShader(GL_VERTEX_SHADER);
+	GLchar* vshCode =
+		"#version 120\n"
+		"attribute vec3 pos;"
+		"attribute vec3 color;"
+		"varying vec3 color1;"
+		"uniform mat4 view;"
+		"attribute vec3 norm;"
+		"varying vec3 normal;"
+		"varying vec3 pos1;"
+		"void main(){"
+		"gl_Position=view*vec4(pos,1);"
+		"color1=color;"
+		"normal=(view*vec4(norm,1)).xyz;"
+		"pos1=(view*vec4(pos,1)).xyz;}";
+	GLint vshlen = strlen(vshCode);
+	glShaderSource(vsh, 1, &vshCode, &vshlen);
+	glCompileShader(vsh);
+	glAttachShader(shp, vsh);
+
+	GLint isCompiled = 0;
+	glGetShaderiv(vsh, GL_COMPILE_STATUS, &isCompiled);
+	if (isCompiled == GL_FALSE)
+	{
+		GLint maxLength = 0;
+		glGetShaderiv(vsh, GL_INFO_LOG_LENGTH, &maxLength);
+
+		// The maxLength includes the NULL character
+		std::vector<GLchar> errorLog(maxLength);
+		glGetShaderInfoLog(vsh, maxLength, &maxLength, &errorLog[0]);
+		std::cout << errorLog.data();
+
+	}
+	fsh = glCreateShader(GL_FRAGMENT_SHADER);
+	GLchar* fshCode = "#version 120\n"
+		"varying vec3 color1;"
+		"varying vec3 normal;"
+		"uniform vec3 lightpos = vec3(0,3,-3);"
+		"varying vec3 pos1;"
+		"void main(){"
+		"vec3 tol=lightpos-pos1;"
+		"tol=normalize(tol);"
+		"float dif=dot(tol,normalize(normal));"
+		"dif=max(dif,0.1);"
+		"gl_FragColor = vec4(dif*vec3(1,0,1),1);}";
+
+	GLint fshlen = strlen(fshCode);
+	glShaderSource(fsh, 1, &fshCode, &fshlen);
+	glCompileShader(fsh);
+
+	glGetShaderiv(fsh, GL_COMPILE_STATUS, &isCompiled);
+	if (isCompiled == GL_FALSE)
+	{
+		GLint maxLength = 0;
+		glGetShaderiv(fsh, GL_INFO_LOG_LENGTH, &maxLength);
+
+		// The maxLength includes the NULL character
+		std::vector<GLchar> errorLog(maxLength);
+		glGetShaderInfoLog(fsh, maxLength, &maxLength, &errorLog[0]);
+		std::cout << errorLog.data();
+
+	}
+
+	glAttachShader(shp, fsh);
+
+	glValidateProgram(shp);
+	glLinkProgram(shp);
+	glUseProgram(shp);
+	glClearColor(0.5, 0.5, 1, 1);
+	view = glm::mat4(1);
+
+	double r = 0.7, c = 0.25;
+	int rSeg = 30, cSeg = 30;
+	const double PI = 3.1415926535897932384626433832795;
+	for (int i = 0; i < rSeg; i++) {
+		for (int j = 0; j < cSeg; j++) {
+			for (int k = 0; k < 1; k++) {
+				double s = (i + k) % rSeg + 0.5;
+				double t = j % (cSeg + 1);
+
+				double x = (r + c * cos(i * 2 * PI / rSeg)) * cos(j * 2 * PI / cSeg);
+				double y = (r + c * cos(i * 2 * PI / rSeg)) * sin(j * 2 * PI / cSeg);
+				double z = c * sin(i * 2 * PI / rSeg);
+
+				double u = (i + k) / (float)rSeg;
+				double v = t / (float)cSeg;
+
+				double nx = (cos(i * 2 * PI / rSeg)) * cos(j * 2 * PI / cSeg);
+				double ny = (cos(i * 2 * PI / rSeg)) * sin(j * 2 * PI / cSeg);
+				double nz = sin(i * 2 * PI / rSeg);
+
+				pos.push_back(x);
+				pos.push_back(y);
+				pos.push_back(z);
+
+				pos.push_back(nx);
+				pos.push_back(ny);
+				pos.push_back(nz);
+
+				ind.push_back(i * cSeg + j);
+				ind.push_back((i + 1) % cSeg * cSeg + j);
+				ind.push_back(i * cSeg + (j + 1) % cSeg);
+				ind.push_back((i + 1) % cSeg * cSeg + j);
+				ind.push_back(i * cSeg + (j + 1) % cSeg);
+				ind.push_back((i + 1) % cSeg * cSeg + (j + 1) % cSeg);
+				
+				
+			}
+		}
+		
+	}
+	
+
+	glGenBuffers(1, &ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, ind.size() * sizeof(unsigned int), ind.data(), GL_STATIC_DRAW);
+
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * pos.size(), pos.data(), GL_STATIC_DRAW);
+
+	glEnable(GL_DEPTH_TEST);
+
+	vboloc = glGetAttribLocation(shp, "pos");
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(vboloc, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
+
+	normloc = glGetAttribLocation(shp, "norm");
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(normloc, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+	colloc = glGetAttribLocation(shp, "color");
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(colloc, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	viewloc = glGetUniformLocation(shp, "view");
+
+}
+
+void display()
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glEnableVertexAttribArray(vboloc);
+	glEnableVertexAttribArray(colloc);
+	glEnableVertexAttribArray(normloc);
+	view = glm::rotate(view, 0.01f, glm::vec3(1, 0, 0));
+	glUniformMatrix4fv(viewloc, 1, GL_FALSE, glm::value_ptr(view));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+	glDrawElements(GL_TRIANGLES, ind.size(), GL_UNSIGNED_INT, 0);
+	//glDrawArrays(GL_TRIANGLES, 0, pos.size()/3);
+	glDisableVertexAttribArray(vboloc);
+	glDisableVertexAttribArray(colloc);
+	glDisableVertexAttribArray(normloc);
+	glutSwapBuffers();
+}
+
+int main(int argc, char** argv)
+{
+	glutInit(&argc, argv);
+	glutInitWindowSize(500, 500);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+	glutCreateWindow("window");
+
+	glewInit();
+
+	myinit();
+
+	glutDisplayFunc(display);
+	glutIdleFunc(display);
+
+	glutMainLoop();
+
+	return 0;
+}

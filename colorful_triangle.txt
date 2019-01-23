@@ -1,0 +1,92 @@
+#include <GL/glew.h>
+#include <gl/freeglut.h> 
+
+GLuint vbo, vboloc, col,colloc;
+void myinit() {
+
+	GLuint shp, vsh, fsh;
+	shp = glCreateProgram();
+	vsh = glCreateShader(GL_VERTEX_SHADER);
+	GLchar* vshCode =
+		"#version 120\n"
+		"attribute vec3 pos;"
+		"attribute vec3 color;"
+		"varying vec3 color1;"
+		"void main(){"
+		"gl_Position=vec4(pos,1);"
+		"color1=color;}";
+	GLint vshlen = strlen(vshCode);
+	glShaderSource(vsh, 1, &vshCode, &vshlen);
+	glCompileShader(vsh);
+	glAttachShader(shp, vsh);
+
+	fsh = glCreateShader(GL_FRAGMENT_SHADER);
+	GLchar* fshCode = "#version 120\n"
+		"varying vec3 color1;"
+		"void main(){"
+		"gl_FragColor=vec4(color1,1);}";
+
+	GLint fshlen = strlen(fshCode);
+	glShaderSource(fsh, 1, &fshCode, &fshlen);
+	glCompileShader(fsh);
+
+	glAttachShader(shp, fsh);
+
+	glValidateProgram(shp);
+	glLinkProgram(shp);
+	glUseProgram(shp);
+	glClearColor(0.5, 0.5, 1, 1);
+	float positions[] = { 1,0,0,0,1,0,0,0,1 };
+	float color[] = { 1,0,0,0,1,0,0,0,1 };
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, &positions[0], GL_STATIC_DRAW);
+
+	glGenBuffers(1, &col);
+	glBindBuffer(GL_ARRAY_BUFFER, col);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, &color[0], GL_STATIC_DRAW);
+
+	vboloc = glGetAttribLocation(shp, "pos");
+	
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(vboloc, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	
+
+	colloc = glGetAttribLocation(shp, "color");
+	
+	glBindBuffer(GL_ARRAY_BUFFER, col);
+	glVertexAttribPointer(colloc, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	
+}
+
+void display()
+{
+	glClear(GL_COLOR_BUFFER_BIT);
+	glEnableVertexAttribArray(vboloc);
+	glEnableVertexAttribArray(colloc);
+	
+	
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDisableVertexAttribArray(vboloc);
+	glDisableVertexAttribArray(colloc);
+	glutSwapBuffers();
+}
+
+int main(int argc, char** argv)
+{
+	glutInit(&argc, argv);
+	glutInitWindowSize(500, 500);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+	glutCreateWindow("window");
+
+	glewInit();
+
+	myinit();
+
+	glutDisplayFunc(display);
+	glutIdleFunc(display);
+
+	glutMainLoop();
+
+	return 0;
+}
